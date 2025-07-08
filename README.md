@@ -1,4 +1,5 @@
 # rmon - Resource Monitor
+![swappy-20250708_102027](https://github.com/user-attachments/assets/06faf67b-5cad-4c6c-931d-f1f56d47f623)
 
 A lightweight CLI system monitor with real-time monitoring capabilities.
 
@@ -13,6 +14,10 @@ A lightweight CLI system monitor with real-time monitoring capabilities.
 - **Session-relative network totals**
 - **Both TUI and simple text modes**
 - **Comprehensive temperature monitoring**
+
+![swappy-20250708_102056](https://github.com/user-attachments/assets/6b847023-c80a-4da4-9bd1-51228acf682c)
+
+![swappy-20250708_102125](https://github.com/user-attachments/assets/694e6d10-cbe9-4c06-88d2-ad2f949a858c)
 
 ## Installation
 
