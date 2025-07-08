@@ -18,7 +18,7 @@ A lightweight CLI system monitor with real-time monitoring capabilities.
 
 #### DEB Package (Debian/Ubuntu)
 #### RPM Package (RHEL/CentOS/Fedora)
-- See releases
+- Download from releases section
 - After installation run with `rmon`
 
 ### From Source
