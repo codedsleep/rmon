@@ -1,1 +1,0 @@
-/home/zzzz/Documents/code/rust-cli-resources/target/debug/sysmon-cli: /home/zzzz/Documents/code/rust-cli-resources/src/main.rs /home/zzzz/Documents/code/rust-cli-resources/src/metrics.rs /home/zzzz/Documents/code/rust-cli-resources/src/ui.rs

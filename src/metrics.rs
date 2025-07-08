@@ -314,28 +314,55 @@ impl SystemMetrics {
         
         // Try to read per-core temperatures from hwmon
         if let Some(physical_temps) = self.read_hwmon_core_temperatures() {
-            // If we have fewer temperature sensors than logical cores, 
-            // map physical core temps to logical cores (handle hyperthreading)
             let logical_cores = self.per_core_usage.len();
             let physical_cores = physical_temps.len();
             
             if physical_cores > 0 && logical_cores > physical_cores {
-                // Assume hyperthreading: each physical core has multiple logical cores
-                let threads_per_core = logical_cores / physical_cores;
+                // Map physical core temps to all logical cores
+                // For Intel 13900KF: 24 physical cores (8 P-cores + 16 E-cores) -> 32 logical cores
+                // P-cores have hyperthreading (2 threads per core), E-cores don't
+                // Mapping strategy: distribute available physical temps across all logical cores
                 for logical_core in 0..logical_cores {
-                    let physical_core = logical_core / threads_per_core;
+                    let physical_core = if logical_core < physical_cores {
+                        // Direct mapping for cores within physical range
+                        logical_core
+                    } else {
+                        // For additional logical cores, map back to physical cores cyclically
+                        logical_core % physical_cores
+                    };
+                    
                     if physical_core < physical_cores {
                         self.per_core_temperatures.push(physical_temps[physical_core]);
                     }
                 }
-            } else {
-                // Direct mapping
-                self.per_core_temperatures = physical_temps;
+            } else if physical_cores > 0 {
+                // Direct mapping or pad with the last available temperature
+                for logical_core in 0..logical_cores {
+                    if logical_core < physical_cores {
+                        self.per_core_temperatures.push(physical_temps[logical_core]);
+                    } else {
+                        // Use the last available physical core temp for additional logical cores
+                        self.per_core_temperatures.push(physical_temps[physical_cores - 1]);
+                    }
+                }
             }
         } else {
             // Fallback: try to estimate from thermal zones
             if let Some(temps) = self.read_thermal_zone_core_temperatures() {
-                self.per_core_temperatures = temps;
+                let logical_cores = self.per_core_usage.len();
+                // Ensure we have temps for all logical cores
+                if temps.len() < logical_cores {
+                    self.per_core_temperatures = temps.clone();
+                    // Pad remaining cores with the average temperature if we have some temps
+                    if !temps.is_empty() {
+                        let avg_temp = temps.iter().sum::<f32>() / temps.len() as f32;
+                        while self.per_core_temperatures.len() < logical_cores {
+                            self.per_core_temperatures.push(avg_temp);
+                        }
+                    }
+                } else {
+                    self.per_core_temperatures = temps;
+                }
             }
         }
     }
@@ -344,7 +371,6 @@ impl SystemMetrics {
         use std::fs;
         
         let hwmon_base = "/sys/class/hwmon";
-        let mut core_temps = Vec::new();
         
         if let Ok(entries) = fs::read_dir(hwmon_base) {
             for entry in entries.flatten() {
@@ -358,7 +384,8 @@ impl SystemMetrics {
                         let mut temp_map = Vec::new();
                         
                         // Look for all temp*_input files with "Core" labels
-                        for i in 1..=32 { // Most systems won't have more than 32 cores
+                        // Check a wider range since core sensors might be at non-consecutive numbers
+                        for i in 1..=64 { // Expanded range to cover more possible sensor locations
                             let temp_file = hwmon_path.join(format!("temp{}_input", i));
                             let label_file = hwmon_path.join(format!("temp{}_label", i));
                             
@@ -370,7 +397,7 @@ impl SystemMetrics {
                                     if let Ok(label_data) = fs::read_to_string(&label_file) {
                                         let label = label_data.trim().to_lowercase();
                                         if label.contains("core") && temp_celsius > 10.0 && temp_celsius < 150.0 {
-                                            // Extract core number from label like "Core 0", "Core 1", etc.
+                                            // Extract core number from label like "Core 0", "Core 8", etc.
                                             if let Some(core_num_str) = label.split_whitespace().nth(1) {
                                                 if let Ok(core_num) = core_num_str.parse::<usize>() {
                                                     temp_map.push((core_num, temp_celsius));
@@ -385,7 +412,8 @@ impl SystemMetrics {
                         if !temp_map.is_empty() {
                             // Sort by core number to ensure correct order
                             temp_map.sort_by_key(|&(core_num, _)| core_num);
-                            core_temps = temp_map.into_iter().map(|(_, temp)| temp).collect();
+                            // Map sparse core numbers to continuous array
+                            let core_temps = temp_map.into_iter().map(|(_, temp)| temp).collect();
                             return Some(core_temps);
                         }
                     }

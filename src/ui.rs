@@ -219,10 +219,11 @@ fn draw_cpu_widget(f: &mut Frame, app: &App, area: Rect) {
     // CPU Info with per-core data
     let mut cpu_info = if let Some(cpu) = app.system.cpus().first() {
         vec![
-            Line::from(format!("Brand: {}", cpu.brand())),
+            Line::from(format!("┌─ CPU Info ─────────────────")),
+            Line::from(format!("│ Brand: {}", cpu.brand())),
+            Line::from(format!("│ Cores: {}    Freq: {:.0} MHz", app.system.cpus().len(), cpu.frequency())),
+            Line::from("└───────────────────────────"),
             Line::from(""),  // Empty line for spacing
-            Line::from(format!("Cores: {}", app.system.cpus().len())),
-            Line::from(format!("Freq:  {:.0} MHz", cpu.frequency())),
         ]
     } else {
         vec![Line::from("CPU info unavailable")]
@@ -232,43 +233,76 @@ fn draw_cpu_widget(f: &mut Frame, app: &App, area: Rect) {
     let per_core = app.metrics.per_core_usage();
     let per_core_temps = app.metrics.per_core_temperatures();
     
-    if !per_core.is_empty() && per_core.len() <= 8 {
-        cpu_info.push(Line::from(""));  // Empty line for spacing
-        cpu_info.push(Line::from("Per-core Usage & Temp:"));
-        let cores_per_row = 2; // Two cores per row for better readability
-        let mut current_line = String::new();
-        for (i, &usage) in per_core.iter().enumerate() {
-            if i % cores_per_row == 0 && !current_line.is_empty() {
-                cpu_info.push(Line::from(current_line.clone()));
-                current_line.clear();
-            }
+    if !per_core.is_empty() {
+        if per_core.len() <= 8 {
+            // For systems with 8 cores or fewer, show detailed per-core info
+            cpu_info.push(Line::from("┌─ Core Usage & Temperature ─"));
             
-            // Get temperature for this core if available
-            let temp_str = if i < per_core_temps.len() {
-                format!("{:4.1}°C", per_core_temps[i])
-            } else {
-                "  N/A".to_string()
-            };
-            
-            if i % cores_per_row == 0 {
-                current_line = format!("  C{}: {:4.1}% {:>6}", i, usage, temp_str);
-            } else {
-                current_line += &format!("   C{}: {:4.1}% {:>6}", i, usage, temp_str);
+            for (i, &usage) in per_core.iter().enumerate() {
+                // Get temperature for this core if available
+                let temp_str = if i < per_core_temps.len() {
+                    format!("{:5.1}°C", per_core_temps[i])
+                } else {
+                    "  N/A ".to_string()
+                };
+                
+                let usage_bar = if usage < 25.0 {
+                    "▁"
+                } else if usage < 50.0 {
+                    "▃"
+                } else if usage < 75.0 {
+                    "▅"
+                } else {
+                    "▇"
+                };
+                
+                cpu_info.push(Line::from(format!("│ Core {:2}: {:5.1}% {} │ {}", i, usage, usage_bar, temp_str)));
             }
+            cpu_info.push(Line::from("└─────────────────────────────"));
+        } else {
+            // For systems with many cores, show summary stats first
+            let avg_usage = per_core.iter().sum::<f32>() / per_core.len() as f32;
+            let max_usage = per_core.iter().fold(0.0f32, |a, &b| a.max(b));
+            let min_usage = per_core.iter().fold(100.0f32, |a, &b| a.min(b));
+            
+            cpu_info.push(Line::from("┌─ Usage Summary ─────────────"));
+            cpu_info.push(Line::from(format!("│ Avg: {:5.1}%  Max: {:5.1}%", avg_usage, max_usage)));
+            cpu_info.push(Line::from(format!("│ Min: {:5.1}%  Cores: {:3}", min_usage, per_core.len())));
+            
+            // Show temperature stats if available
+            if !per_core_temps.is_empty() {
+                let avg_temp = per_core_temps.iter().sum::<f32>() / per_core_temps.len() as f32;
+                let max_temp = per_core_temps.iter().fold(0.0f32, |a, &b| a.max(b));
+                let min_temp = per_core_temps.iter().fold(200.0f32, |a, &b| a.min(b));
+                cpu_info.push(Line::from(format!("│ Temp: {:.1}°C  Max: {:.1}°C", avg_temp, max_temp)));
+            }
+            cpu_info.push(Line::from("└─────────────────────────────"));
+            cpu_info.push(Line::from(""));  // Empty line for spacing
+            
+            // Show all cores in a more compact but readable format
+            cpu_info.push(Line::from("┌─ Individual Cores ─────────"));
+            
+            let cores_per_line = 4;
+            for chunk in per_core.chunks(cores_per_line) {
+                let mut line = String::from("│ ");
+                for (local_i, &usage) in chunk.iter().enumerate() {
+                    let core_idx = (chunk.as_ptr() as usize - per_core.as_ptr() as usize) / std::mem::size_of::<f32>() + local_i;
+                    
+                    // Get temperature for this core if available
+                    let temp_str = if core_idx < per_core_temps.len() {
+                        format!("{:.0}°", per_core_temps[core_idx])
+                    } else {
+                        "N/A".to_string()
+                    };
+                    
+                    line += &format!("C{:2}:{:4.0}%/{:>3} ", core_idx, usage, temp_str);
+                }
+                cpu_info.push(Line::from(line));
+            }
+            cpu_info.push(Line::from("└─────────────────────────────"));
         }
-        if !current_line.is_empty() {
-            cpu_info.push(Line::from(current_line));
-        }
-    } else if !per_core.is_empty() {
-        cpu_info.push(Line::from(""));  // Empty line for spacing
-        cpu_info.push(Line::from(format!("Avg Usage: {:.1}%", per_core.iter().sum::<f32>() / per_core.len() as f32)));
     }
 
-    // Add package temperature info
-    if let Some(temp) = app.metrics.cpu_temperature() {
-        cpu_info.push(Line::from(""));  // Empty line for spacing
-        cpu_info.push(Line::from(format!("Package: {:.1}°C", temp)));
-    }
 
     let info_paragraph = Paragraph::new(cpu_info)
         .block(Block::default().borders(Borders::ALL))
