@@ -17,27 +17,9 @@ A lightweight CLI system monitor with real-time monitoring capabilities.
 ### From Packages
 
 #### DEB Package (Debian/Ubuntu)
-```bash
-# Download the latest release
-wget https://github.com/example/rmon/releases/latest/download/rmon_0.1.0-1_amd64.deb
-
-# Install
-sudo dpkg -i rmon_0.1.0-1_amd64.deb
-
-# If dependencies are missing:
-sudo apt-get install -f
-```
-
 #### RPM Package (RHEL/CentOS/Fedora)
-```bash
-# Download the latest release
-wget https://github.com/example/rmon/releases/latest/download/rmon-0.1.0-1.x86_64.rpm
-
-# Install
-sudo rpm -i rmon-0.1.0-1.x86_64.rpm
-# or with yum/dnf:
-sudo yum install rmon-0.1.0-1.x86_64.rpm
-```
+- See releases
+- After installation run with `rmon`
 
 ### From Source
 
@@ -47,7 +29,7 @@ sudo yum install rmon-0.1.0-1.x86_64.rpm
 
 #### Build and Install
 ```bash
-git clone https://github.com/example/rmon
+git clone https://github.com/codedsleep/rmon
 cd rmon
 cargo build --release
 sudo cp target/release/rmon /usr/local/bin/
