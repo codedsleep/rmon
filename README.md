@@ -6,8 +6,10 @@ A lightweight CLI system monitor with real-time monitoring capabilities.
 
 - **Real-time CPU monitoring** with per-core usage and temperatures
 - **Memory usage tracking** with history graphs
+- **Process display**
 - **Disk usage monitoring** for root filesystem
 - **Network activity monitoring** with download/upload rates
+- **Journal listing**
 - **Session-relative network totals**
 - **Both TUI and simple text modes**
 - **Comprehensive temperature monitoring**
