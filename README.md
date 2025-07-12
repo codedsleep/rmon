@@ -1,20 +1,28 @@
 # rmon - Resource Monitor
 <img width="3811" height="2092" alt="swappy-20250712_093415" src="https://github.com/user-attachments/assets/160301a4-a8bc-4079-b6ce-1b82c3fd2fea" />
 
-A lightweight CLI system monitor with real-time monitoring capabilities.
+`rmon` is a lightweight terminal application for keeping an eye on system resources in real time.
+It offers a text user interface as well as a simple text output mode.
 
 ## Features
 
-- **Real-time CPU monitoring** with per-core usage and temperatures
-- **Memory usage tracking** with history graphs
-- **Process display**
-- **Disk usage monitoring** for root filesystem
-- **Network activity monitoring** with download/upload rates
-- **GPU usage and temperature monitoring** (NVIDIA)
-- **Journal listing**
-- **Session-relative network totals**
-- **Both TUI and simple text modes**
-- **Comprehensive temperature monitoring**
+### CPU Monitoring
+- Per-core usage graphs
+- Package and per-core temperature readings using the system sensors
+- Historical charts so spikes and trends are easy to spot
+
+### GPU Monitoring
+- NVIDIA GPU support via **nvidia-smi**
+- Usage percentage and temperature
+- Fan speed, power draw and VRAM usage where available
+- Graphs for GPU load and memory utilisation
+
+### Additional Monitoring
+- Memory usage with history graphs
+- Disk usage for the root filesystem
+- Network activity and session totals
+- Process list with sorting and kill options
+- Journal log viewing
 
 ![swappy-20250708_102056](https://github.com/user-attachments/assets/6b847023-c80a-4da4-9bd1-51228acf682c)
 
@@ -26,13 +34,14 @@ A lightweight CLI system monitor with real-time monitoring capabilities.
 
 #### DEB Package (Debian/Ubuntu)
 #### RPM Package (RHEL/CentOS/Fedora)
-- Download from releases section
+- Download from the releases page
 
 ### From Source
 
 #### Prerequisites
-- Rust 1.70+ 
+- Rust 1.70+
 - Cargo
+- For GPU metrics, ensure `nvidia-smi` is available in your PATH
 
 #### Build and Install
 ```bash
@@ -63,4 +72,3 @@ rmon --simple
 - **K**: Kill selected process
 - **q/Ctrl+C**: Quit
 
-````
