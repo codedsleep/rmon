@@ -528,6 +528,10 @@ fn draw_network_widget(f: &mut Frame, app: &App, area: Rect) {
 fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
     let usage = app.metrics.gpu_usage().unwrap_or(0.0);
     let temp = app.metrics.gpu_temperature();
+    let fan = app.metrics.gpu_fan_speed();
+    let power = app.metrics.gpu_power_draw();
+    let mem_used = app.metrics.gpu_memory_used();
+    let mem_total = app.metrics.gpu_memory_total();
 
     let chunks = Layout::default()
         .direction(Direction::Vertical)
@@ -555,13 +559,32 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
         .label(format!("{:.1}%", usage));
     f.render_widget(gauge, chunks[0]);
 
-    let info_line = if let Some(t) = temp {
-        vec![Line::from(format!("Temp: {:.1}°C", t))]
+    let mut info_lines = Vec::new();
+    if let Some(t) = temp {
+        info_lines.push(Line::from(format!("Temp: {:.1}°C", t)));
     } else {
-        vec![Line::from("Temp: N/A")]
-    };
+        info_lines.push(Line::from("Temp: N/A"));
+    }
+    if let Some(f) = fan {
+        info_lines.push(Line::from(format!("Fan: {:.0}%", f)));
+    } else {
+        info_lines.push(Line::from("Fan: N/A"));
+    }
+    if let Some(p) = power {
+        info_lines.push(Line::from(format!("Power: {:.1} W", p)));
+    } else {
+        info_lines.push(Line::from("Power: N/A"));
+    }
+    match (mem_used, mem_total) {
+        (Some(u), Some(t)) => {
+            let pct = u as f32 / t as f32 * 100.0;
+            info_lines.push(Line::from(format!("VRAM: {} / {} MiB ({:.1}%)", u, t, pct)));
+        }
+        (Some(u), None) => info_lines.push(Line::from(format!("VRAM Used: {} MiB", u))),
+        _ => info_lines.push(Line::from("VRAM: N/A")),
+    }
 
-    let info_paragraph = Paragraph::new(info_line)
+    let info_paragraph = Paragraph::new(info_lines)
         .block(Block::default().borders(Borders::ALL))
         .style(Style::default().fg(Color::White));
     f.render_widget(info_paragraph, chunks[1]);

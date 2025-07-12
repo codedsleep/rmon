@@ -470,6 +470,27 @@ fn run_simple_mode(mut app: App) -> Result<()> {
         } else {
             println!("  Temp: N/A");
         }
+
+        if let Some(fan) = app.metrics.gpu_fan_speed() {
+            println!("  Fan: {:.0}%", fan);
+        } else {
+            println!("  Fan: N/A");
+        }
+
+        if let Some(power) = app.metrics.gpu_power_draw() {
+            println!("  Power: {:.1} W", power);
+        } else {
+            println!("  Power: N/A");
+        }
+
+        match (app.metrics.gpu_memory_used(), app.metrics.gpu_memory_total()) {
+            (Some(used), Some(total)) => {
+                let pct = used as f32 / total as f32 * 100.0;
+                println!("  VRAM: {} / {} MiB ({:.1}%)", used, total, pct);
+            }
+            (Some(used), None) => println!("  VRAM Used: {} MiB", used),
+            _ => println!("  VRAM: N/A"),
+        }
         
         // Handle Ctrl+C
         if let Ok(true) = event::poll(Duration::from_millis(100)) {

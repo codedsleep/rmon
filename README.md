@@ -10,7 +10,7 @@ A lightweight CLI system monitor with real-time monitoring capabilities.
 - **Process display**
 - **Disk usage monitoring** for root filesystem
 - **Network activity monitoring** with download/upload rates
-- **GPU usage and temperature monitoring** (NVIDIA)
+- **NVIDIA GPU statistics** (usage, temperature, fan, power, VRAM)
 - **Journal listing**
 - **Session-relative network totals**
 - **Both TUI and simple text modes**

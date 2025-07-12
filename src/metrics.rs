@@ -24,6 +24,10 @@ pub struct SystemMetrics {
     // GPU data (NVIDIA via nvidia-smi)
     gpu_usage: Option<f32>,
     gpu_temperature: Option<f32>,
+    gpu_fan_speed: Option<f32>,
+    gpu_power_draw: Option<f32>,
+    gpu_memory_used: Option<u32>,
+    gpu_memory_total: Option<u32>,
     
     max_history: usize,
 }
@@ -60,6 +64,10 @@ impl SystemMetrics {
             per_core_temperatures: Vec::new(),
             gpu_usage: None,
             gpu_temperature: None,
+            gpu_fan_speed: None,
+            gpu_power_draw: None,
+            gpu_memory_used: None,
+            gpu_memory_total: None,
             max_history,
         }
     }
@@ -167,6 +175,22 @@ impl SystemMetrics {
 
     pub fn gpu_temperature(&self) -> Option<f32> {
         self.gpu_temperature
+    }
+
+    pub fn gpu_fan_speed(&self) -> Option<f32> {
+        self.gpu_fan_speed
+    }
+
+    pub fn gpu_power_draw(&self) -> Option<f32> {
+        self.gpu_power_draw
+    }
+
+    pub fn gpu_memory_used(&self) -> Option<u32> {
+        self.gpu_memory_used
+    }
+
+    pub fn gpu_memory_total(&self) -> Option<u32> {
+        self.gpu_memory_total
     }
 
     fn update_network_stats(&mut self) {
@@ -485,7 +509,7 @@ impl SystemMetrics {
 
         let output = Command::new("nvidia-smi")
             .args([
-                "--query-gpu=utilization.gpu,temperature.gpu",
+                "--query-gpu=utilization.gpu,temperature.gpu,fan.speed,power.draw,memory.used,memory.total",
                 "--format=csv,noheader,nounits",
             ])
             .output();
@@ -495,9 +519,13 @@ impl SystemMetrics {
                 if let Ok(out_str) = String::from_utf8(output.stdout) {
                     if let Some(line) = out_str.lines().next() {
                         let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
-                        if parts.len() >= 2 {
+                        if parts.len() >= 6 {
                             self.gpu_usage = parts[0].parse::<f32>().ok();
                             self.gpu_temperature = parts[1].parse::<f32>().ok();
+                            self.gpu_fan_speed = parts[2].parse::<f32>().ok();
+                            self.gpu_power_draw = parts[3].parse::<f32>().ok();
+                            self.gpu_memory_used = parts[4].parse::<u32>().ok();
+                            self.gpu_memory_total = parts[5].parse::<u32>().ok();
                             return;
                         }
                     }
@@ -507,5 +535,9 @@ impl SystemMetrics {
 
         self.gpu_usage = None;
         self.gpu_temperature = None;
+        self.gpu_fan_speed = None;
+        self.gpu_power_draw = None;
+        self.gpu_memory_used = None;
+        self.gpu_memory_total = None;
     }
 }
