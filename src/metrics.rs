@@ -24,6 +24,11 @@ pub struct SystemMetrics {
     // GPU data (NVIDIA via nvidia-smi)
     gpu_usage: Option<f32>,
     gpu_temperature: Option<f32>,
+    gpu_fan_speed: Option<f32>,       // Fan speed in percentage
+    gpu_power_draw: Option<f32>,      // Power usage in watts
+    gpu_memory_used: Option<f32>,     // VRAM used in MB
+    gpu_memory_total: Option<f32>,    // Total VRAM in MB
+    gpu_name: Option<String>,         // GPU name for display
     
     max_history: usize,
 }
@@ -60,6 +65,11 @@ impl SystemMetrics {
             per_core_temperatures: Vec::new(),
             gpu_usage: None,
             gpu_temperature: None,
+            gpu_fan_speed: None,
+            gpu_power_draw: None,
+            gpu_memory_used: None,
+            gpu_memory_total: None,
+            gpu_name: None,
             max_history,
         }
     }
@@ -167,6 +177,38 @@ impl SystemMetrics {
 
     pub fn gpu_temperature(&self) -> Option<f32> {
         self.gpu_temperature
+    }
+
+    pub fn gpu_fan_speed(&self) -> Option<f32> {
+        self.gpu_fan_speed
+    }
+
+    pub fn gpu_power_draw(&self) -> Option<f32> {
+        self.gpu_power_draw
+    }
+
+    pub fn gpu_memory_used(&self) -> Option<f32> {
+        self.gpu_memory_used
+    }
+
+    pub fn gpu_memory_total(&self) -> Option<f32> {
+        self.gpu_memory_total
+    }
+
+    pub fn gpu_memory_usage_percent(&self) -> Option<f32> {
+        if let (Some(used), Some(total)) = (self.gpu_memory_used, self.gpu_memory_total) {
+            if total > 0.0 {
+                Some((used / total) * 100.0)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    pub fn gpu_name(&self) -> Option<&String> {
+        self.gpu_name.as_ref()
     }
 
     fn update_network_stats(&mut self) {
@@ -483,9 +525,10 @@ impl SystemMetrics {
     fn update_gpu_stats(&mut self) {
         use std::process::Command;
 
+        // Enhanced nvidia-smi query for comprehensive GPU information
         let output = Command::new("nvidia-smi")
             .args([
-                "--query-gpu=utilization.gpu,temperature.gpu",
+                "--query-gpu=name,utilization.gpu,temperature.gpu,fan.speed,power.draw,memory.used,memory.total",
                 "--format=csv,noheader,nounits",
             ])
             .output();
@@ -495,9 +538,44 @@ impl SystemMetrics {
                 if let Ok(out_str) = String::from_utf8(output.stdout) {
                     if let Some(line) = out_str.lines().next() {
                         let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
-                        if parts.len() >= 2 {
-                            self.gpu_usage = parts[0].parse::<f32>().ok();
-                            self.gpu_temperature = parts[1].parse::<f32>().ok();
+                        if parts.len() >= 7 {
+                            // Parse all GPU metrics
+                            self.gpu_name = if !parts[0].is_empty() && parts[0] != "[Not Supported]" {
+                                Some(parts[0].to_string())
+                            } else {
+                                None
+                            };
+                            
+                            self.gpu_usage = parts[1].parse::<f32>().ok();
+                            self.gpu_temperature = parts[2].parse::<f32>().ok();
+                            
+                            // Fan speed (percentage)
+                            self.gpu_fan_speed = if parts[3] != "[Not Supported]" {
+                                parts[3].parse::<f32>().ok()
+                            } else {
+                                None
+                            };
+                            
+                            // Power draw (watts)
+                            self.gpu_power_draw = if parts[4] != "[Not Supported]" {
+                                parts[4].parse::<f32>().ok()
+                            } else {
+                                None
+                            };
+                            
+                            // Memory usage (convert to MB)
+                            self.gpu_memory_used = if parts[5] != "[Not Supported]" {
+                                parts[5].parse::<f32>().ok()
+                            } else {
+                                None
+                            };
+                            
+                            self.gpu_memory_total = if parts[6] != "[Not Supported]" {
+                                parts[6].parse::<f32>().ok()
+                            } else {
+                                None
+                            };
+                            
                             return;
                         }
                     }
@@ -505,7 +583,43 @@ impl SystemMetrics {
             }
         }
 
+        // Fallback: try basic query if comprehensive query fails
+        let fallback_output = Command::new("nvidia-smi")
+            .args([
+                "--query-gpu=utilization.gpu,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ])
+            .output();
+
+        if let Ok(output) = fallback_output {
+            if output.status.success() {
+                if let Ok(out_str) = String::from_utf8(output.stdout) {
+                    if let Some(line) = out_str.lines().next() {
+                        let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                        if parts.len() >= 2 {
+                            self.gpu_usage = parts[0].parse::<f32>().ok();
+                            self.gpu_temperature = parts[1].parse::<f32>().ok();
+                            
+                            // Clear advanced metrics since they weren't available
+                            self.gpu_fan_speed = None;
+                            self.gpu_power_draw = None;
+                            self.gpu_memory_used = None;
+                            self.gpu_memory_total = None;
+                            self.gpu_name = None;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        // Clear all GPU data if nvidia-smi is not available or failed
         self.gpu_usage = None;
         self.gpu_temperature = None;
+        self.gpu_fan_speed = None;
+        self.gpu_power_draw = None;
+        self.gpu_memory_used = None;
+        self.gpu_memory_total = None;
+        self.gpu_name = None;
     }
 }

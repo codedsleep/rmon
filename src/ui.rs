@@ -528,16 +528,25 @@ fn draw_network_widget(f: &mut Frame, app: &App, area: Rect) {
 fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
     let usage = app.metrics.gpu_usage().unwrap_or(0.0);
     let temp = app.metrics.gpu_temperature();
+    let fan_speed = app.metrics.gpu_fan_speed();
+    let power_draw = app.metrics.gpu_power_draw();
+    let memory_used = app.metrics.gpu_memory_used();
+    let memory_total = app.metrics.gpu_memory_total();
+    let memory_percent = app.metrics.gpu_memory_usage_percent();
+    let gpu_name = app.metrics.gpu_name();
 
+    // Create a more detailed layout for comprehensive GPU info
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([
-            Constraint::Length(3),
-            Constraint::Min(0),
+            Constraint::Length(3),  // GPU Usage gauge
+            Constraint::Length(3),  // VRAM Usage gauge
+            Constraint::Min(0),     // Detailed info section
         ])
         .split(area);
 
-    let color = if usage < 50.0 {
+    // GPU Usage gauge with dynamic coloring
+    let usage_color = if usage < 50.0 {
         Color::Green
     } else if usage < 80.0 {
         Color::Yellow
@@ -545,25 +554,153 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
         Color::Red
     };
 
-    let gauge = Gauge::default()
-        .block(Block::default()
-            .title("🎮 GPU Usage")
-            .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Magenta)))
-        .gauge_style(Style::default().fg(color))
-        .percent(usage as u16)
-        .label(format!("{:.1}%", usage));
-    f.render_widget(gauge, chunks[0]);
-
-    let info_line = if let Some(t) = temp {
-        vec![Line::from(format!("Temp: {:.1}°C", t))]
+    // Create title with GPU name if available
+    let gpu_title = if let Some(name) = gpu_name {
+        format!("🎮 GPU Usage - {}", name)
     } else {
-        vec![Line::from("Temp: N/A")]
+        "🎮 GPU Usage - NVIDIA GPU".to_string()
     };
 
-    let info_paragraph = Paragraph::new(info_line)
-        .block(Block::default().borders(Borders::ALL))
+    let usage_gauge = Gauge::default()
+        .block(Block::default()
+            .title(gpu_title)
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Magenta)))
+        .gauge_style(Style::default().fg(usage_color))
+        .percent(usage as u16)
+        .label(format!("{:.1}%", usage));
+    f.render_widget(usage_gauge, chunks[0]);
+
+    // VRAM Usage gauge
+    if let Some(mem_percent) = memory_percent {
+        let memory_color = if mem_percent < 60.0 {
+            Color::Cyan
+        } else if mem_percent < 85.0 {
+            Color::Yellow
+        } else {
+            Color::Red
+        };
+
+        let vram_label = if let (Some(used), Some(total)) = (memory_used, memory_total) {
+            format!("{:.0}MB / {:.0}MB ({:.1}%)", used, total, mem_percent)
+        } else {
+            format!("{:.1}%", mem_percent)
+        };
+
+        let memory_gauge = Gauge::default()
+            .block(Block::default()
+                .title("💾 VRAM Usage")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)))
+            .gauge_style(Style::default().fg(memory_color))
+            .percent(mem_percent as u16)
+            .label(vram_label);
+        f.render_widget(memory_gauge, chunks[1]);
+    } else {
+        // Show placeholder if VRAM info not available
+        let memory_gauge = Gauge::default()
+            .block(Block::default()
+                .title("💾 VRAM Usage")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::DarkGray)))
+            .gauge_style(Style::default().fg(Color::DarkGray))
+            .percent(0)
+            .label("N/A");
+        f.render_widget(memory_gauge, chunks[1]);
+    }
+
+    // Comprehensive GPU information panel
+    let mut gpu_info = vec![
+        Line::from("┌─ GPU Metrics ───────────────"),
+    ];
+
+    // Temperature with color coding
+    if let Some(t) = temp {
+        let temp_icon = if t < 60.0 {
+            "🌡️"
+        } else if t < 80.0 {
+            "🔥"
+        } else {
+            "🚨"
+        };
+        gpu_info.push(Line::from(format!("│ {} Temperature: {:.1}°C", temp_icon, t)));
+    } else {
+        gpu_info.push(Line::from("│ 🌡️ Temperature: N/A"));
+    }
+
+    // Fan speed with visual indicator
+    if let Some(fan) = fan_speed {
+        let fan_icon = if fan < 30.0 {
+            "💨"
+        } else if fan < 70.0 {
+            "🌪️"
+        } else {
+            "🚁"
+        };
+        gpu_info.push(Line::from(format!("│ {} Fan Speed: {:.0}%", fan_icon, fan)));
+    } else {
+        gpu_info.push(Line::from("│ 💨 Fan Speed: N/A"));
+    }
+
+    // Power draw with efficiency indicator
+    if let Some(power) = power_draw {
+        let power_icon = if power < 150.0 {
+            "⚡"
+        } else if power < 250.0 {
+            "🔌"
+        } else {
+            "🔋"
+        };
+        gpu_info.push(Line::from(format!("│ {} Power Draw: {:.1}W", power_icon, power)));
+    } else {
+        gpu_info.push(Line::from("│ ⚡ Power Draw: N/A"));
+    }
+
+    // Memory details if available
+    if let (Some(used), Some(total)) = (memory_used, memory_total) {
+        let free_memory = total - used;
+        gpu_info.push(Line::from("├─ VRAM Details ─────────────"));
+        gpu_info.push(Line::from(format!("│ 📊 Used: {:.0} MB", used)));
+        gpu_info.push(Line::from(format!("│ 📋 Free: {:.0} MB", free_memory)));
+        gpu_info.push(Line::from(format!("│ 💽 Total: {:.0} MB", total)));
+    }
+
+    gpu_info.push(Line::from("└─────────────────────────────"));
+
+    // Add performance status indicator
+    let performance_status = if usage > 80.0 {
+        "🔴 High Load"
+    } else if usage > 50.0 {
+        "🟡 Medium Load"
+    } else if usage > 10.0 {
+        "🟢 Light Load"
+    } else {
+        "💤 Idle"
+    };
+    
+    gpu_info.push(Line::from(""));
+    gpu_info.push(Line::from(format!("Status: {}", performance_status)));
+
+    // Thermal status if temperature available
+    if let Some(t) = temp {
+        let thermal_status = if t > 80.0 {
+            "🚨 Hot"
+        } else if t > 70.0 {
+            "🔥 Warm"
+        } else if t > 50.0 {
+            "🌡️ Normal"
+        } else {
+            "❄️ Cool"
+        };
+        gpu_info.push(Line::from(format!("Thermal: {}", thermal_status)));
+    }
+
+    let info_paragraph = Paragraph::new(gpu_info)
+        .block(Block::default()
+            .title("📈 GPU Analytics")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Magenta)))
         .style(Style::default().fg(Color::White));
-    f.render_widget(info_paragraph, chunks[1]);
+    f.render_widget(info_paragraph, chunks[2]);
 }
 

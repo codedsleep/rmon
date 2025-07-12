@@ -458,17 +458,67 @@ fn run_simple_mode(mut app: App) -> Result<()> {
             }
         }
 
-        // GPU info
+        // Enhanced GPU info
         println!("\nGPU:");
+        
+        // GPU name if available
+        if let Some(name) = app.metrics.gpu_name() {
+            println!("  Model: {}", name);
+        }
+        
+        // Core usage
         if let Some(usage) = app.metrics.gpu_usage() {
             println!("  Usage: {:.1}%", usage);
         } else {
             println!("  Usage: N/A");
         }
+        
+        // Temperature with status
         if let Some(temp) = app.metrics.gpu_temperature() {
-            println!("  Temp: {:.1}°C", temp);
+            let status = if temp > 80.0 { "🚨" } else if temp > 70.0 { "🔥" } else { "🌡️" };
+            println!("  Temp: {:.1}°C {}", temp, status);
         } else {
             println!("  Temp: N/A");
+        }
+        
+        // Fan speed
+        if let Some(fan) = app.metrics.gpu_fan_speed() {
+            let fan_status = if fan > 70.0 { "🚁" } else if fan > 30.0 { "🌪️" } else { "💨" };
+            println!("  Fan: {:.0}% {}", fan, fan_status);
+        } else {
+            println!("  Fan: N/A");
+        }
+        
+        // Power draw
+        if let Some(power) = app.metrics.gpu_power_draw() {
+            let power_status = if power > 250.0 { "🔋" } else if power > 150.0 { "🔌" } else { "⚡" };
+            println!("  Power: {:.1}W {}", power, power_status);
+        } else {
+            println!("  Power: N/A");
+        }
+        
+        // VRAM usage
+        if let (Some(used), Some(total)) = (app.metrics.gpu_memory_used(), app.metrics.gpu_memory_total()) {
+            let percent = (used / total) * 100.0;
+            let free = total - used;
+            println!("  VRAM: {:.0}MB / {:.0}MB ({:.1}%)", used, total, percent);
+            println!("  VRAM Free: {:.0}MB", free);
+        } else {
+            println!("  VRAM: N/A");
+        }
+        
+        // Performance status
+        if let Some(usage) = app.metrics.gpu_usage() {
+            let status = if usage > 80.0 {
+                "🔴 High Load"
+            } else if usage > 50.0 {
+                "🟡 Medium Load"
+            } else if usage > 10.0 {
+                "🟢 Light Load"
+            } else {
+                "💤 Idle"
+            };
+            println!("  Status: {}", status);
         }
         
         // Handle Ctrl+C
