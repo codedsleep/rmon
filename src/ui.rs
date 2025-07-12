@@ -4,8 +4,8 @@ use ratatui::{
     layout::{Alignment, Constraint, Direction, Layout, Rect},
     style::{Color, Modifier, Style},
     symbols,
-    text::Line,
-    widgets::{Axis, Block, Borders, Chart, Dataset, Gauge, List, ListItem, ListState, Paragraph, Tabs, Table, Row, Cell, TableState},
+    text::{Line, Span},
+    widgets::{Axis, Block, Borders, BorderType, Chart, Dataset, Gauge, List, ListItem, ListState, Paragraph, Tabs, Table, Row, Cell, TableState},
     Frame,
 };
 
@@ -19,24 +19,36 @@ pub fn draw(f: &mut Frame, app: &App) {
         ])
         .split(f.area());
 
-    // Clock
+    // Clock with Btop-inspired styling
     let now = Local::now();
-    let clock_text = format!("{}", now.format("%H:%M:%S"));
+    let clock_text = format!("⏰ {}", now.format("%H:%M:%S"));
     let clock = Paragraph::new(clock_text)
-        .style(Style::default().fg(Color::Cyan))
+        .style(Style::default().fg(Color::Rgb(139, 233, 253))) // Bright cyan
         .alignment(Alignment::Center)
-        .block(Block::default().borders(Borders::ALL));
+        .block(Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(98, 114, 164))));
     f.render_widget(clock, chunks[0]);
 
-    // Tabs with navigation hint
-    let tab_titles = vec!["System Monitor", "Processes", "Journal Logs"];
+    // Tabs with enhanced Btop-inspired styling
+    let tab_titles = vec![
+        "🖥️ System Monitor", 
+        "⚙️ Processes", 
+        "📋 Journal Logs"
+    ];
     let tabs = Tabs::new(tab_titles)
         .block(Block::default()
-            .title("Press [Tab] to switch pages")
-            .borders(Borders::ALL))
+            .title("Navigation - [Tab] switch │ [Q] quit")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(98, 114, 164))))
         .select(app.current_tab)
-        .style(Style::default().fg(Color::White))
-        .highlight_style(Style::default().add_modifier(Modifier::BOLD).fg(Color::Yellow));
+        .style(Style::default().fg(Color::Rgb(216, 222, 233)))
+        .highlight_style(Style::default()
+            .add_modifier(Modifier::BOLD)
+            .fg(Color::Rgb(136, 192, 208)) // Nord frost
+            .bg(Color::Rgb(46, 52, 64)));
     f.render_widget(tabs, chunks[1]);
 
     // Main content based on selected tab
@@ -95,7 +107,7 @@ fn draw_journal_logs(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // Instructions
-    let instructions = Paragraph::new("Use ↑/↓ to scroll, PgUp/PgDn for fast scroll, Tab to switch tabs")
+    let instructions = Paragraph::new("⬆️⬇️ scroll, PgUp/PgDn for fast scroll, Tab to switch tabs")
         .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::ALL));
@@ -130,7 +142,7 @@ fn draw_processes(f: &mut Frame, app: &App, area: Rect) {
         .split(area);
 
     // Instructions with sort and kill controls
-    let instructions = Paragraph::new("Use ↑/↓ to scroll, PgUp/PgDn for fast scroll, Tab to switch tabs • [C] sort by CPU • [M] sort by Memory • [K] kill process")
+    let instructions = Paragraph::new("⬆️⬇️ scroll, PgUp/PgDn fast scroll, Tab switch • [C] CPU sort • [M] Memory sort • [K] kill process")
         .style(Style::default().fg(Color::Gray))
         .alignment(Alignment::Center)
         .block(Block::default().borders(Borders::ALL));
@@ -177,7 +189,7 @@ fn draw_processes(f: &mut Frame, app: &App, area: Rect) {
     let table = Table::new(rows, widths)
         .header(header)
         .block(Block::default()
-            .title(format!("🔄 Running Processes ({} total, sorted by {}) • Selected: [K] to kill", app.processes.len(), sort_indicator))
+            .title(format!("⚙️ Running Processes ({} total, sorted by {}) • Selected: [K] to kill", app.processes.len(), sort_indicator))
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Cyan)))
         .row_highlight_style(Style::default().bg(Color::Red).fg(Color::White).add_modifier(Modifier::BOLD))
@@ -204,36 +216,39 @@ fn draw_cpu_widget(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
-    // CPU Gauge
-    let cpu_color = if cpu_usage < 50.0 {
-        Color::Green
+    // Enhanced CPU Gauge with Btop-inspired colors
+    let cpu_color = if cpu_usage < 30.0 {
+        Color::Rgb(163, 190, 140) // Nord green
+    } else if cpu_usage < 50.0 {
+        Color::Rgb(235, 203, 139) // Nord yellow
     } else if cpu_usage < 80.0 {
-        Color::Yellow
+        Color::Rgb(208, 135, 112) // Nord orange
     } else {
-        Color::Red
+        Color::Rgb(191, 97, 106) // Nord red
     };
     
     let gauge = Gauge::default()
         .block(Block::default()
-            .title("🖥️ CPU Usage")
+            .title("🧠 CPU Usage")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Green)))
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(163, 190, 140))))
         .gauge_style(Style::default().fg(cpu_color))
         .percent(cpu_usage as u16)
         .label(format!("{:.1}%", cpu_usage));
     f.render_widget(gauge, chunks[0]);
 
-    // CPU Info with per-core data
+    // Enhanced CPU Info
     let mut cpu_info = if let Some(cpu) = app.system.cpus().first() {
         vec![
-            Line::from(format!("┌─ CPU Info ─────────────────")),
+            Line::from("╭─ CPU Info ─────────────────╮"),
             Line::from(format!("│ Brand: {}", cpu.brand())),
-            Line::from(format!("│ Cores: {}    Freq: {:.0} MHz", app.system.cpus().len(), cpu.frequency())),
-            Line::from("└───────────────────────────"),
+            Line::from(format!("│ ⚡ Cores: {}  Freq: {:.0} MHz", app.system.cpus().len(), cpu.frequency())),
+            Line::from("╰───────────────────────────╯"),
             Line::from(""),  // Empty line for spacing
         ]
     } else {
-        vec![Line::from("CPU info unavailable")]
+        vec![Line::from("⚠️ CPU info unavailable")]
     };
 
     // Add per-core usage and temperature info side by side
@@ -243,7 +258,7 @@ fn draw_cpu_widget(f: &mut Frame, app: &App, area: Rect) {
     if !per_core.is_empty() {
         if per_core.len() <= 8 {
             // For systems with 8 cores or fewer, show detailed per-core info
-            cpu_info.push(Line::from("┌─ Core Usage & Temperature ─"));
+            cpu_info.push(Line::from("╭─ Core Usage & Temperature ─╮"));
             
             for (i, &usage) in per_core.iter().enumerate() {
                 // Get temperature for this core if available
@@ -253,19 +268,28 @@ fn draw_cpu_widget(f: &mut Frame, app: &App, area: Rect) {
                     "  N/A ".to_string()
                 };
                 
-                let usage_bar = if usage < 25.0 {
+                // Enhanced visual usage bars with better Unicode
+                let usage_bar = if usage < 12.5 {
                     "▁"
-                } else if usage < 50.0 {
+                } else if usage < 25.0 {
+                    "▂"
+                } else if usage < 37.5 {
                     "▃"
-                } else if usage < 75.0 {
+                } else if usage < 50.0 {
+                    "▄"
+                } else if usage < 62.5 {
                     "▅"
-                } else {
+                } else if usage < 75.0 {
+                    "▆"
+                } else if usage < 87.5 {
                     "▇"
+                } else {
+                    "█"
                 };
                 
-                cpu_info.push(Line::from(format!("│ Core {:2}: {:5.1}% {} │ {}", i, usage, usage_bar, temp_str)));
+                cpu_info.push(Line::from(format!("│ Core {:2}: {:5.1}% {} │ 🌡️ {}", i, usage, usage_bar, temp_str)));
             }
-            cpu_info.push(Line::from("└─────────────────────────────"));
+            cpu_info.push(Line::from("╰─────────────────────────────╯"));
         } else {
             // For systems with many cores, show summary stats first
             let avg_usage = per_core.iter().sum::<f32>() / per_core.len() as f32;
@@ -329,42 +353,58 @@ fn draw_memory_widget(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
-    // Memory Gauge
-    let memory_color = if memory_usage < 60.0 {
-        Color::Cyan
-    } else if memory_usage < 85.0 {
-        Color::Yellow
+    // Enhanced Memory Gauge with Btop-inspired colors
+    let memory_color = if memory_usage < 40.0 {
+        Color::Rgb(136, 192, 208) // Nord frost
+    } else if memory_usage < 60.0 {
+        Color::Rgb(163, 190, 140) // Nord aurora green
+    } else if memory_usage < 80.0 {
+        Color::Rgb(235, 203, 139) // Nord aurora yellow
     } else {
-        Color::Red
+        Color::Rgb(191, 97, 106) // Nord aurora red
     };
     
     let gauge = Gauge::default()
         .block(Block::default()
             .title("💾 Memory Usage")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Blue)))
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(136, 192, 208))))
         .gauge_style(Style::default().fg(memory_color))
         .percent(memory_usage as u16)
         .label(format!("{:.1}%", memory_usage));
     f.render_widget(gauge, chunks[0]);
 
-    // Memory Info
+    // Enhanced Memory Info with visual indicators
     let total_mem = app.system.total_memory() as f64 / 1024.0 / 1024.0;
     let used_mem = app.system.used_memory() as f64 / 1024.0 / 1024.0;
     let free_mem = total_mem - used_mem;
+    let usage_ratio = used_mem / total_mem;
+    
+    let mem_bar = if usage_ratio < 0.4 {
+        "▁▂▃▂▁"
+    } else if usage_ratio < 0.6 {
+        "▂▃▅▃▂"
+    } else if usage_ratio < 0.8 {
+        "▃▅▆▅▃"
+    } else {
+        "▅▇▇▇▅"
+    };
 
     let memory_info = vec![
         Line::from(format!("Total: {:.1} MB", total_mem)),
-        Line::from(format!("Used: {:.1} MB", used_mem)),
+        Line::from(format!("Used: {:.1} MB {}", used_mem, mem_bar)),
         Line::from(format!("Free: {:.1} MB", free_mem)),
     ];
 
     let info_paragraph = Paragraph::new(memory_info)
-        .block(Block::default().borders(Borders::ALL))
+        .block(Block::default()
+            .borders(Borders::ALL)
+            .border_type(BorderType::Rounded))
         .style(Style::default().fg(Color::White));
     f.render_widget(info_paragraph, chunks[1]);
 
-    // Memory Chart
+    // Enhanced Memory Chart with Btop-inspired styling
     let memory_data: Vec<(f64, f64)> = app.metrics.memory_history()
         .iter()
         .enumerate()
@@ -373,29 +413,30 @@ fn draw_memory_widget(f: &mut Frame, app: &App, area: Rect) {
 
     if !memory_data.is_empty() {
         let datasets = vec![Dataset::default()
-            .name("Memory Usage")
+            .name("◈ Memory Usage")
             .marker(symbols::Marker::Braille)
-            .style(Style::default().fg(Color::Cyan))
+            .style(Style::default().fg(Color::Rgb(136, 192, 208)))
             .data(&memory_data)];
 
         let chart = Chart::new(datasets)
             .block(Block::default()
-                .title("Memory Usage History")
+                .title("📊 Memory Usage History")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Blue)))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(Color::Rgb(136, 192, 208))))
             .x_axis(
                 Axis::default()
-                    .title("Time")
-                    .style(Style::default().fg(Color::Gray))
+                    .title("◀ Time ▶")
+                    .style(Style::default().fg(Color::Rgb(216, 222, 233)))
                     .bounds([0.0, app.metrics.memory_history().len() as f64])
                     .labels(vec!["Past", "Now"]),
             )
             .y_axis(
                 Axis::default()
-                    .title("Usage %")
-                    .style(Style::default().fg(Color::Gray))
+                    .title("% Usage")
+                    .style(Style::default().fg(Color::Rgb(216, 222, 233)))
                     .bounds([0.0, 100.0])
-                    .labels(vec!["0%", "25%", "50%", "75%", "100%"]),
+                    .labels(vec!["0", "25", "50", "75", "100"]),
             );
         f.render_widget(chart, chunks[2]);
     }
@@ -412,26 +453,29 @@ fn draw_disk_widget(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
-    // Disk Gauge
-    let disk_color = if disk_usage < 70.0 {
-        Color::Green
+    // Enhanced Disk Gauge with Btop-inspired colors
+    let disk_color = if disk_usage < 50.0 {
+        Color::Rgb(163, 190, 140) // Nord aurora green
+    } else if disk_usage < 70.0 {
+        Color::Rgb(235, 203, 139) // Nord aurora yellow
     } else if disk_usage < 90.0 {
-        Color::Yellow
+        Color::Rgb(208, 135, 112) // Nord aurora orange
     } else {
-        Color::Red
+        Color::Rgb(191, 97, 106) // Nord aurora red
     };
     
     let gauge = Gauge::default()
         .block(Block::default()
             .title("💽 Disk Usage")
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Yellow)))
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(235, 203, 139))))
         .gauge_style(Style::default().fg(disk_color))
         .percent(disk_usage as u16)
         .label(format!("{:.1}%", disk_usage));
     f.render_widget(gauge, chunks[0]);
 
-    // Disk Info
+    // Enhanced Disk Info
     let mut disk_info = vec![Line::from("Root filesystem:")];
     let disks = sysinfo::Disks::new_with_refreshed_list();
     for disk in &disks {
@@ -442,6 +486,7 @@ fn draw_disk_widget(f: &mut Frame, app: &App, area: Rect) {
             
             disk_info.push(Line::from(format!("Total: {:.1} GB", total)));
             disk_info.push(Line::from(format!("Used: {:.1} GB", used)));
+            disk_info.push(Line::from(format!("Free: {:.1} GB", available)));
             break;
         }
     }
@@ -482,7 +527,7 @@ fn draw_network_widget(f: &mut Frame, app: &App, area: Rect) {
     
     let download_gauge = Gauge::default()
         .block(Block::default()
-            .title("⬇️ Download")
+            .title("📥 Download")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Green)))
         .gauge_style(Style::default().fg(download_color))
@@ -501,7 +546,7 @@ fn draw_network_widget(f: &mut Frame, app: &App, area: Rect) {
     
     let upload_gauge = Gauge::default()
         .block(Block::default()
-            .title("⬆️ Upload")
+            .title("📤 Upload")
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Red)))
         .gauge_style(Style::default().fg(upload_color))
@@ -509,7 +554,7 @@ fn draw_network_widget(f: &mut Frame, app: &App, area: Rect) {
         .label(format!("{:.1} Kbps", upload_rate));
     f.render_widget(upload_gauge, chunks[1]);
 
-    // Network Info
+    // Enhanced Network Info
     let network_info = vec![
         Line::from(format!("Total Down: {:.1} MB", total_rx as f64 / 1024.0 / 1024.0)),
         Line::from(format!("Total Up: {:.1} MB", total_tx as f64 / 1024.0 / 1024.0)),
@@ -546,40 +591,57 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
         ])
         .split(area);
 
-    // GPU Usage gauge with dynamic coloring
-    let usage_color = if usage < 50.0 {
-        Color::Green
+    // Enhanced GPU Usage gauge with Btop-inspired gradient colors
+    let usage_color = if usage < 20.0 {
+        Color::Rgb(136, 192, 208) // Nord frost
+    } else if usage < 40.0 {
+        Color::Rgb(163, 190, 140) // Nord aurora green
+    } else if usage < 60.0 {
+        Color::Rgb(235, 203, 139) // Nord aurora yellow
     } else if usage < 80.0 {
-        Color::Yellow
+        Color::Rgb(208, 135, 112) // Nord aurora orange
     } else {
-        Color::Red
+        Color::Rgb(191, 97, 106) // Nord aurora red
     };
 
-    // Create title with GPU name if available
-    let gpu_title = if let Some(name) = gpu_name {
-        format!("🎮 GPU Usage - {}", name)
+    // Create enhanced title with GPU name and status
+    let performance_status = if usage > 80.0 {
+        "🔥"
+    } else if usage > 50.0 {
+        "⚡"
+    } else if usage > 10.0 {
+        "🟢"
     } else {
-        "🎮 GPU Usage - NVIDIA GPU".to_string()
+        "💤"
+    };
+
+    let gpu_title = if let Some(name) = gpu_name {
+        format!("🎮 GPU {} - {}", performance_status, name)
+    } else {
+        format!("🎮 GPU {} - NVIDIA", performance_status)
     };
 
     let usage_gauge = Gauge::default()
         .block(Block::default()
             .title(gpu_title)
             .borders(Borders::ALL)
-            .border_style(Style::default().fg(Color::Magenta)))
+            .border_type(BorderType::Rounded)
+            .border_style(Style::default().fg(Color::Rgb(143, 188, 187))))
         .gauge_style(Style::default().fg(usage_color))
         .percent(usage as u16)
         .label(format!("{:.1}%", usage));
     f.render_widget(usage_gauge, chunks[0]);
 
-    // VRAM Usage gauge
+    // Enhanced VRAM Usage gauge with Btop-inspired styling
     if let Some(mem_percent) = memory_percent {
-        let memory_color = if mem_percent < 60.0 {
-            Color::Cyan
-        } else if mem_percent < 85.0 {
-            Color::Yellow
+        let memory_color = if mem_percent < 40.0 {
+            Color::Rgb(136, 192, 208) // Nord frost blue
+        } else if mem_percent < 60.0 {
+            Color::Rgb(143, 188, 187) // Nord frost teal
+        } else if mem_percent < 80.0 {
+            Color::Rgb(235, 203, 139) // Nord aurora yellow
         } else {
-            Color::Red
+            Color::Rgb(191, 97, 106) // Nord aurora red
         };
 
         let vram_label = if let (Some(used), Some(total)) = (memory_used, memory_total) {
@@ -590,21 +652,23 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
 
         let memory_gauge = Gauge::default()
             .block(Block::default()
-                .title("💾 VRAM Usage")
+                .title("💾 VRAM Memory")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::Cyan)))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(Color::Rgb(136, 192, 208))))
             .gauge_style(Style::default().fg(memory_color))
             .percent(mem_percent as u16)
             .label(vram_label);
         f.render_widget(memory_gauge, chunks[1]);
     } else {
-        // Show placeholder if VRAM info not available
+        // Show enhanced placeholder if VRAM info not available
         let memory_gauge = Gauge::default()
             .block(Block::default()
-                .title("💾 VRAM Usage")
+                .title("💾 VRAM Memory")
                 .borders(Borders::ALL)
-                .border_style(Style::default().fg(Color::DarkGray)))
-            .gauge_style(Style::default().fg(Color::DarkGray))
+                .border_type(BorderType::Rounded)
+                .border_style(Style::default().fg(Color::Rgb(76, 86, 106))))
+            .gauge_style(Style::default().fg(Color::Rgb(76, 86, 106)))
             .percent(0)
             .label("N/A");
         f.render_widget(memory_gauge, chunks[1]);
@@ -632,7 +696,7 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
 
         let chart = Chart::new(datasets)
             .block(Block::default()
-                .title("GPU Usage %")
+                .title("🎮 GPU Usage %")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Magenta)))
             .x_axis(
@@ -668,7 +732,7 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
 
         let chart = Chart::new(datasets)
             .block(Block::default()
-                .title("VRAM Usage %")
+                .title("💾 VRAM Usage %")
                 .borders(Borders::ALL)
                 .border_style(Style::default().fg(Color::Cyan)))
             .x_axis(
@@ -694,88 +758,111 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
         .split(chunks[3]);
 
-    // GPU Analytics panel (left side)
+    // Enhanced GPU Analytics panel
     let mut gpu_info = vec![
-        Line::from("┌─ GPU Metrics ───────────────"),
+        Line::from("╭─ 🎮 GPU Metrics ─────────────╮"),
     ];
 
-    // Temperature with color coding
+    // Enhanced temperature with color-coded visual bars
     if let Some(t) = temp {
-        let temp_icon = if t < 60.0 {
-            "🌡️"
+        let (temp_icon, temp_bar) = if t < 50.0 {
+            ("❄️", "▁▁▁▁▁")
+        } else if t < 60.0 {
+            ("🌡️", "▁▂▂▂▁")
+        } else if t < 70.0 {
+            ("🌡️", "▂▃▃▃▂")
         } else if t < 80.0 {
-            "🔥"
+            ("🔥", "▃▅▅▅▃")
         } else {
-            "🚨"
+            ("🚨", "▅▇▇▇▅")
         };
-        gpu_info.push(Line::from(format!("│ {} Temperature: {:.1}°C", temp_icon, t)));
+        gpu_info.push(Line::from(format!("│ {} Temp: {:.1}°C {}", temp_icon, t, temp_bar)));
     } else {
         gpu_info.push(Line::from("│ 🌡️ Temperature: N/A"));
     }
 
-    // Fan speed with visual indicator
+    // Enhanced fan speed with visual RPM indicator
     if let Some(fan) = fan_speed {
-        let fan_icon = if fan < 30.0 {
-            "💨"
-        } else if fan < 70.0 {
-            "🌪️"
+        let (fan_icon, fan_bar) = if fan < 20.0 {
+            ("💨", "▁▁▁▁▁")
+        } else if fan < 40.0 {
+            ("🌪️", "▂▃▃▃▂")
+        } else if fan < 60.0 {
+            ("🌪️", "▃▅▅▅▃")
+        } else if fan < 80.0 {
+            ("🚁", "▅▆▆▆▅")
         } else {
-            "🚁"
+            ("🚁", "▇███▇")
         };
-        gpu_info.push(Line::from(format!("│ {} Fan Speed: {:.0}%", fan_icon, fan)));
+        gpu_info.push(Line::from(format!("│ {} Fan: {:.0}% {}", fan_icon, fan, fan_bar)));
     } else {
         gpu_info.push(Line::from("│ 💨 Fan Speed: N/A"));
     }
 
-    // Power draw with efficiency indicator
+    // Enhanced power draw with efficiency visual
     if let Some(power) = power_draw {
-        let power_icon = if power < 150.0 {
-            "⚡"
-        } else if power < 250.0 {
-            "🔌"
+        let (power_icon, power_bar) = if power < 100.0 {
+            ("⚡", "▁▂▁▁▁")
+        } else if power < 200.0 {
+            ("🔌", "▂▃▄▃▂")
+        } else if power < 300.0 {
+            ("🔋", "▄▅▆▅▄")
         } else {
-            "🔋"
+            ("🔋", "▆▇▇▇▆")
         };
-        gpu_info.push(Line::from(format!("│ {} Power Draw: {:.1}W", power_icon, power)));
+        gpu_info.push(Line::from(format!("│ {} Power: {:.1}W {}", power_icon, power, power_bar)));
     } else {
         gpu_info.push(Line::from("│ ⚡ Power Draw: N/A"));
     }
 
-    // Memory details if available
+    // Enhanced memory details with visual representation
     if let (Some(used), Some(total)) = (memory_used, memory_total) {
         let free_memory = total - used;
-        gpu_info.push(Line::from("├─ VRAM Details ─────────────"));
-        gpu_info.push(Line::from(format!("│ 📊 Used: {:.0} MB", used)));
-        gpu_info.push(Line::from(format!("│ 📋 Free: {:.0} MB", free_memory)));
-        gpu_info.push(Line::from(format!("│ 💽 Total: {:.0} MB", total)));
+        let usage_ratio = used / total;
+        let mem_bar = if usage_ratio < 0.3 {
+            "▁▂▃▂▁"
+        } else if usage_ratio < 0.6 {
+            "▂▃▅▃▂"
+        } else if usage_ratio < 0.8 {
+            "▃▅▆▅▃"
+        } else {
+            "▅▇▇▇▅"
+        };
+        
+        gpu_info.push(Line::from("├─ 💾 VRAM Details ──────────┤"));
+        gpu_info.push(Line::from(format!("│ Used: {:.0} MB {}", used, mem_bar)));
+        gpu_info.push(Line::from(format!("│ Free: {:.0} MB", free_memory)));
+        gpu_info.push(Line::from(format!("│ Total: {:.0} MB", total)));
     }
 
-    gpu_info.push(Line::from("└─────────────────────────────"));
+    gpu_info.push(Line::from("╰─────────────────────────────╯"));
 
-    // Add performance status indicator
+    // Enhanced status indicators
     let performance_status = if usage > 80.0 {
-        "🔴 High Load"
+        "🔴 HIGH LOAD"
     } else if usage > 50.0 {
-        "🟡 Medium Load"
+        "🟡 MEDIUM LOAD"
     } else if usage > 10.0 {
-        "🟢 Light Load"
+        "🟢 LIGHT LOAD"
     } else {
-        "💤 Idle"
+        "💤 IDLE"
     };
     
     gpu_info.push(Line::from(""));
     gpu_info.push(Line::from(format!("Status: {}", performance_status)));
 
-    // Thermal status if temperature available
+    // Enhanced thermal status
     if let Some(t) = temp {
-        let thermal_status = if t > 80.0 {
-            "🚨 Hot"
+        let thermal_status = if t > 85.0 {
+            "🚨 CRITICAL"
+        } else if t > 80.0 {
+            "🔥 HOT"
         } else if t > 70.0 {
-            "🔥 Warm"
+            "🌡️ WARM"
         } else if t > 50.0 {
-            "🌡️ Normal"
+            "🌡️ NORMAL"
         } else {
-            "❄️ Cool"
+            "❄️ COOL"
         };
         gpu_info.push(Line::from(format!("Thermal: {}", thermal_status)));
     }
@@ -797,7 +884,7 @@ fn draw_gpu_processes(f: &mut Frame, _app: &App, area: Rect) {
     let gpu_processes = get_gpu_processes();
     
     let mut process_lines = vec![
-        Line::from("┌─ GPU Processes ─────────────"),
+        Line::from("╭─ 🎮 GPU Processes ──────────╮"),
     ];
 
     if gpu_processes.is_empty() {
@@ -805,7 +892,7 @@ fn draw_gpu_processes(f: &mut Frame, _app: &App, area: Rect) {
         process_lines.push(Line::from("│ or nvidia-smi unavailable"));
     } else {
         // Add header with better spacing for longer process names
-        process_lines.push(Line::from("│ PID   GPU%  MEM%   VRAM  Process Name"));
+        process_lines.push(Line::from("│ PID   GPU%  MEM%   VRAM  Process"));
         process_lines.push(Line::from("├───────────────────────────────────"));
         
         // Add each process (show all processes, not just limited number)
@@ -849,7 +936,7 @@ fn draw_gpu_processes(f: &mut Frame, _app: &App, area: Rect) {
         }
     }
     
-    process_lines.push(Line::from("└────────────────────────────────────"));
+    process_lines.push(Line::from("╰────────────────────────────────────╯"));
 
     let processes_paragraph = Paragraph::new(process_lines)
         .block(Block::default()
