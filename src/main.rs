@@ -457,6 +457,19 @@ fn run_simple_mode(mut app: App) -> Result<()> {
                 }
             }
         }
+
+        // GPU info
+        println!("\nGPU:");
+        if let Some(usage) = app.metrics.gpu_usage() {
+            println!("  Usage: {:.1}%", usage);
+        } else {
+            println!("  Usage: N/A");
+        }
+        if let Some(temp) = app.metrics.gpu_temperature() {
+            println!("  Temp: {:.1}°C", temp);
+        } else {
+            println!("  Temp: N/A");
+        }
         
         // Handle Ctrl+C
         if let Ok(true) = event::poll(Duration::from_millis(100)) {

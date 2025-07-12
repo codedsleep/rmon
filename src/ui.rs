@@ -49,7 +49,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_system_monitor(f: &mut Frame, app: &App, area: Rect) {
-    // Main content in 4 panels layout (2x2 grid)
+    // Main content in 5 panels layout (2x2 grid plus GPU panel)
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -62,7 +62,11 @@ fn draw_system_monitor(f: &mut Frame, app: &App, area: Rect) {
 
     let bottom_chunks = Layout::default()
         .direction(Direction::Horizontal)
-        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .constraints([
+            Constraint::Percentage(33),
+            Constraint::Percentage(33),
+            Constraint::Percentage(34),
+        ])
         .split(main_chunks[1]);
 
     // CPU usage (top-left)
@@ -73,9 +77,12 @@ fn draw_system_monitor(f: &mut Frame, app: &App, area: Rect) {
     
     // Disk usage (bottom-left)
     draw_disk_widget(f, app, bottom_chunks[0]);
-    
-    // Network usage (bottom-right)
+
+    // Network usage (bottom-middle)
     draw_network_widget(f, app, bottom_chunks[1]);
+
+    // GPU usage (bottom-right)
+    draw_gpu_widget(f, app, bottom_chunks[2]);
 }
 
 fn draw_journal_logs(f: &mut Frame, app: &App, area: Rect) {
@@ -516,5 +523,47 @@ fn draw_network_widget(f: &mut Frame, app: &App, area: Rect) {
             .border_style(Style::default().fg(Color::Magenta)))
         .style(Style::default().fg(Color::White));
     f.render_widget(info_paragraph, chunks[2]);
+}
+
+fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
+    let usage = app.metrics.gpu_usage().unwrap_or(0.0);
+    let temp = app.metrics.gpu_temperature();
+
+    let chunks = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3),
+            Constraint::Min(0),
+        ])
+        .split(area);
+
+    let color = if usage < 50.0 {
+        Color::Green
+    } else if usage < 80.0 {
+        Color::Yellow
+    } else {
+        Color::Red
+    };
+
+    let gauge = Gauge::default()
+        .block(Block::default()
+            .title("🎮 GPU Usage")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Magenta)))
+        .gauge_style(Style::default().fg(color))
+        .percent(usage as u16)
+        .label(format!("{:.1}%", usage));
+    f.render_widget(gauge, chunks[0]);
+
+    let info_line = if let Some(t) = temp {
+        vec![Line::from(format!("Temp: {:.1}°C", t))]
+    } else {
+        vec![Line::from("Temp: N/A")]
+    };
+
+    let info_paragraph = Paragraph::new(info_line)
+        .block(Block::default().borders(Borders::ALL))
+        .style(Style::default().fg(Color::White));
+    f.render_widget(info_paragraph, chunks[1]);
 }
 
