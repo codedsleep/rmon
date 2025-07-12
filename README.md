@@ -1,5 +1,5 @@
 # rmon - Resource Monitor
-![swappy-20250708_102027](https://github.com/user-attachments/assets/06faf67b-5cad-4c6c-931d-f1f56d47f623)
+<img width="3811" height="2092" alt="swappy-20250712_093415" src="https://github.com/user-attachments/assets/160301a4-a8bc-4079-b6ce-1b82c3fd2fea" />
 
 A lightweight CLI system monitor with real-time monitoring capabilities.
 
