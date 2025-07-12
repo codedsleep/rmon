@@ -2,7 +2,7 @@
 <img width="3804" height="2092" alt="swappy-20250712_152104" src="https://github.com/user-attachments/assets/b7a0d8d5-afff-48fb-b704-938bbe3339f1" />
 
 
-A lightweight CLI system monitor with real-time monitoring capabilities.
+A lightweight CLI system monitor with real-time monitoring capabilities, built in Rust.
 
 ## Features
 
