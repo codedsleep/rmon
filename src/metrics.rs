@@ -20,6 +20,10 @@ pub struct SystemMetrics {
     // Per-core CPU data
     per_core_usage: Vec<f32>,
     per_core_temperatures: Vec<f32>,
+
+    // GPU data (NVIDIA via nvidia-smi)
+    gpu_usage: Option<f32>,
+    gpu_temperature: Option<f32>,
     
     max_history: usize,
 }
@@ -54,6 +58,8 @@ impl SystemMetrics {
             last_network_update: Instant::now(),
             per_core_usage: Vec::new(),
             per_core_temperatures: Vec::new(),
+            gpu_usage: None,
+            gpu_temperature: None,
             max_history,
         }
     }
@@ -100,6 +106,9 @@ impl SystemMetrics {
 
         // Update network usage
         self.update_network_stats();
+
+        // Update GPU usage/temperature if available
+        self.update_gpu_stats();
     }
 
 
@@ -150,6 +159,14 @@ impl SystemMetrics {
 
     pub fn per_core_temperatures(&self) -> &[f32] {
         &self.per_core_temperatures
+    }
+
+    pub fn gpu_usage(&self) -> Option<f32> {
+        self.gpu_usage
+    }
+
+    pub fn gpu_temperature(&self) -> Option<f32> {
+        self.gpu_temperature
     }
 
     fn update_network_stats(&mut self) {
@@ -461,5 +478,34 @@ impl SystemMetrics {
         } else {
             None
         }
+    }
+
+    fn update_gpu_stats(&mut self) {
+        use std::process::Command;
+
+        let output = Command::new("nvidia-smi")
+            .args([
+                "--query-gpu=utilization.gpu,temperature.gpu",
+                "--format=csv,noheader,nounits",
+            ])
+            .output();
+
+        if let Ok(output) = output {
+            if output.status.success() {
+                if let Ok(out_str) = String::from_utf8(output.stdout) {
+                    if let Some(line) = out_str.lines().next() {
+                        let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                        if parts.len() >= 2 {
+                            self.gpu_usage = parts[0].parse::<f32>().ok();
+                            self.gpu_temperature = parts[1].parse::<f32>().ok();
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+
+        self.gpu_usage = None;
+        self.gpu_temperature = None;
     }
 }
