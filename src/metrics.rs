@@ -30,6 +30,10 @@ pub struct SystemMetrics {
     gpu_memory_total: Option<f32>,    // Total VRAM in MB
     gpu_name: Option<String>,         // GPU name for display
     
+    // GPU history for charts
+    gpu_usage_history: VecDeque<f32>,
+    gpu_memory_percent_history: VecDeque<f32>,
+    
     max_history: usize,
 }
 
@@ -70,6 +74,8 @@ impl SystemMetrics {
             gpu_memory_used: None,
             gpu_memory_total: None,
             gpu_name: None,
+            gpu_usage_history: VecDeque::with_capacity(max_history),
+            gpu_memory_percent_history: VecDeque::with_capacity(max_history),
             max_history,
         }
     }
@@ -119,6 +125,9 @@ impl SystemMetrics {
 
         // Update GPU usage/temperature if available
         self.update_gpu_stats();
+        
+        // Update GPU history
+        self.update_gpu_history();
     }
 
 
@@ -209,6 +218,14 @@ impl SystemMetrics {
 
     pub fn gpu_name(&self) -> Option<&String> {
         self.gpu_name.as_ref()
+    }
+
+    pub fn gpu_usage_history(&self) -> &VecDeque<f32> {
+        &self.gpu_usage_history
+    }
+
+    pub fn gpu_memory_percent_history(&self) -> &VecDeque<f32> {
+        &self.gpu_memory_percent_history
     }
 
     fn update_network_stats(&mut self) {
@@ -621,5 +638,21 @@ impl SystemMetrics {
         self.gpu_memory_used = None;
         self.gpu_memory_total = None;
         self.gpu_name = None;
+    }
+
+    fn update_gpu_history(&mut self) {
+        // Update GPU usage history
+        let gpu_usage = self.gpu_usage.unwrap_or(0.0);
+        if self.gpu_usage_history.len() >= self.max_history {
+            self.gpu_usage_history.pop_front();
+        }
+        self.gpu_usage_history.push_back(gpu_usage);
+
+        // Update GPU memory percentage history
+        let gpu_memory_percent = self.gpu_memory_usage_percent().unwrap_or(0.0);
+        if self.gpu_memory_percent_history.len() >= self.max_history {
+            self.gpu_memory_percent_history.pop_front();
+        }
+        self.gpu_memory_percent_history.push_back(gpu_memory_percent);
     }
 }

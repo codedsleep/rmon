@@ -49,7 +49,7 @@ pub fn draw(f: &mut Frame, app: &App) {
 }
 
 fn draw_system_monitor(f: &mut Frame, app: &App, area: Rect) {
-    // Main content in 5 panels layout (2x2 grid plus GPU panel)
+    // Main content in 5 panels layout - CPU and GPU on top, everything else on bottom
     let main_chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
@@ -72,17 +72,17 @@ fn draw_system_monitor(f: &mut Frame, app: &App, area: Rect) {
     // CPU usage (top-left)
     draw_cpu_widget(f, app, top_chunks[0]);
     
-    // Memory usage (top-right)
-    draw_memory_widget(f, app, top_chunks[1]);
+    // GPU usage (top-right)
+    draw_gpu_widget(f, app, top_chunks[1]);
     
-    // Disk usage (bottom-left)
-    draw_disk_widget(f, app, bottom_chunks[0]);
+    // Memory usage (bottom-left)
+    draw_memory_widget(f, app, bottom_chunks[0]);
 
-    // Network usage (bottom-middle)
-    draw_network_widget(f, app, bottom_chunks[1]);
+    // Disk usage (bottom-middle)
+    draw_disk_widget(f, app, bottom_chunks[1]);
 
-    // GPU usage (bottom-right)
-    draw_gpu_widget(f, app, bottom_chunks[2]);
+    // Network usage (bottom-right)
+    draw_network_widget(f, app, bottom_chunks[2]);
 }
 
 fn draw_journal_logs(f: &mut Frame, app: &App, area: Rect) {
@@ -280,7 +280,7 @@ fn draw_cpu_widget(f: &mut Frame, app: &App, area: Rect) {
             if !per_core_temps.is_empty() {
                 let avg_temp = per_core_temps.iter().sum::<f32>() / per_core_temps.len() as f32;
                 let max_temp = per_core_temps.iter().fold(0.0f32, |a, &b| a.max(b));
-                let min_temp = per_core_temps.iter().fold(200.0f32, |a, &b| a.min(b));
+                let _min_temp = per_core_temps.iter().fold(200.0f32, |a, &b| a.min(b));
                 cpu_info.push(Line::from(format!("│ Temp: {:.1}°C  Max: {:.1}°C", avg_temp, max_temp)));
             }
             cpu_info.push(Line::from("└─────────────────────────────"));
@@ -541,6 +541,7 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
         .constraints([
             Constraint::Length(3),  // GPU Usage gauge
             Constraint::Length(3),  // VRAM Usage gauge
+            Constraint::Percentage(40), // Charts section
             Constraint::Min(0),     // Detailed info section
         ])
         .split(area);
@@ -609,7 +610,91 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
         f.render_widget(memory_gauge, chunks[1]);
     }
 
-    // Comprehensive GPU information panel
+    // GPU Charts section
+    let chart_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(chunks[2]);
+
+    // GPU Usage Chart
+    let gpu_usage_data: Vec<(f64, f64)> = app.metrics.gpu_usage_history()
+        .iter()
+        .enumerate()
+        .map(|(i, &value)| (i as f64, value as f64))
+        .collect();
+
+    if !gpu_usage_data.is_empty() {
+        let datasets = vec![Dataset::default()
+            .name("GPU Usage")
+            .marker(symbols::Marker::Braille)
+            .style(Style::default().fg(Color::Green))
+            .data(&gpu_usage_data)];
+
+        let chart = Chart::new(datasets)
+            .block(Block::default()
+                .title("GPU Usage %")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Magenta)))
+            .x_axis(
+                Axis::default()
+                    .title("Time")
+                    .style(Style::default().fg(Color::Gray))
+                    .bounds([0.0, app.metrics.gpu_usage_history().len() as f64])
+                    .labels(vec!["Past", "Now"]),
+            )
+            .y_axis(
+                Axis::default()
+                    .title("Usage %")
+                    .style(Style::default().fg(Color::Gray))
+                    .bounds([0.0, 100.0])
+                    .labels(vec!["0%", "25%", "50%", "75%", "100%"]),
+            );
+        f.render_widget(chart, chart_chunks[0]);
+    }
+
+    // GPU Memory Chart
+    let gpu_memory_data: Vec<(f64, f64)> = app.metrics.gpu_memory_percent_history()
+        .iter()
+        .enumerate()
+        .map(|(i, &value)| (i as f64, value as f64))
+        .collect();
+
+    if !gpu_memory_data.is_empty() {
+        let datasets = vec![Dataset::default()
+            .name("VRAM Usage")
+            .marker(symbols::Marker::Braille)
+            .style(Style::default().fg(Color::Cyan))
+            .data(&gpu_memory_data)];
+
+        let chart = Chart::new(datasets)
+            .block(Block::default()
+                .title("VRAM Usage %")
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(Color::Cyan)))
+            .x_axis(
+                Axis::default()
+                    .title("Time")
+                    .style(Style::default().fg(Color::Gray))
+                    .bounds([0.0, app.metrics.gpu_memory_percent_history().len() as f64])
+                    .labels(vec!["Past", "Now"]),
+            )
+            .y_axis(
+                Axis::default()
+                    .title("Usage %")
+                    .style(Style::default().fg(Color::Gray))
+                    .bounds([0.0, 100.0])
+                    .labels(vec!["0%", "25%", "50%", "75%", "100%"]),
+            );
+        f.render_widget(chart, chart_chunks[1]);
+    }
+
+    // Split info section into analytics and processes
+    let info_chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(50), Constraint::Percentage(50)])
+        .split(chunks[3]);
+
+    // GPU Analytics panel (left side)
     let mut gpu_info = vec![
         Line::from("┌─ GPU Metrics ───────────────"),
     ];
@@ -701,6 +786,225 @@ fn draw_gpu_widget(f: &mut Frame, app: &App, area: Rect) {
             .borders(Borders::ALL)
             .border_style(Style::default().fg(Color::Magenta)))
         .style(Style::default().fg(Color::White));
-    f.render_widget(info_paragraph, chunks[2]);
+    f.render_widget(info_paragraph, info_chunks[0]);
+
+    // GPU Processes panel (right side)
+    draw_gpu_processes(f, app, info_chunks[1]);
+}
+
+fn draw_gpu_processes(f: &mut Frame, _app: &App, area: Rect) {
+    // Get GPU processes using nvidia-smi
+    let gpu_processes = get_gpu_processes();
+    
+    let mut process_lines = vec![
+        Line::from("┌─ GPU Processes ─────────────"),
+    ];
+
+    if gpu_processes.is_empty() {
+        process_lines.push(Line::from("│ No GPU processes detected"));
+        process_lines.push(Line::from("│ or nvidia-smi unavailable"));
+    } else {
+        // Add header with better spacing for longer process names
+        process_lines.push(Line::from("│ PID   GPU%  MEM%   VRAM  Process Name"));
+        process_lines.push(Line::from("├───────────────────────────────────"));
+        
+        // Add each process (show all processes, not just limited number)
+        for process in gpu_processes.iter() {
+            let gpu_util_str = process.gpu_util
+                .map(|u| format!("{:3}%", u))
+                .unwrap_or_else(|| "  0%".to_string());
+                
+            // Calculate memory percentage based on actual VRAM usage
+            let mem_util_str = if process.memory_mb > 0 {
+                // Try to get GPU memory percentage from metrics if available
+                if let (Some(total_vram), _) = (_app.metrics.gpu_memory_total(), _app.metrics.gpu_memory_used()) {
+                    let mem_percent = (process.memory_mb as f32 / total_vram) * 100.0;
+                    format!("{:3.1}%", mem_percent)
+                } else {
+                    // Fallback: show memory in MB if total VRAM unknown
+                    format!("{:3}MB", process.memory_mb)
+                }
+            } else {
+                // Show 0% instead of N/A for processes with no memory usage or utilization data
+                process.mem_util
+                    .map(|u| format!("{:3}%", u))
+                    .unwrap_or_else(|| "  0%".to_string())
+            };
+            
+            // Show more of the process name - truncate at 20 characters instead of 9
+            let truncated_name = if process.name.len() > 20 {
+                format!("{}...", &process.name[..17])
+            } else {
+                process.name.clone()
+            };
+            
+            let line = format!("│ {:5} {:>4} {:>6} {:4}MB {}", 
+                process.pid,
+                gpu_util_str,
+                mem_util_str,
+                process.memory_mb,
+                truncated_name
+            );
+            process_lines.push(Line::from(line));
+        }
+    }
+    
+    process_lines.push(Line::from("└────────────────────────────────────"));
+
+    let processes_paragraph = Paragraph::new(process_lines)
+        .block(Block::default()
+            .title("🎮 GPU Processes")
+            .borders(Borders::ALL)
+            .border_style(Style::default().fg(Color::Yellow)))
+        .style(Style::default().fg(Color::White));
+    f.render_widget(processes_paragraph, area);
+}
+
+#[derive(Debug)]
+struct GpuProcess {
+    pid: u32,
+    name: String,
+    memory_mb: u32,
+    gpu_util: Option<u32>,     // GPU utilization percentage
+    mem_util: Option<u32>,     // Memory utilization percentage
+}
+
+fn get_gpu_processes() -> Vec<GpuProcess> {
+    use std::process::Command;
+    
+    let mut processes = Vec::new();
+    
+    // Try to get all GPU processes using the comprehensive query method
+    let comprehensive_output = Command::new("nvidia-smi")
+        .args([
+            "--query-compute-apps=pid,name,used_memory",
+            "--format=csv,noheader,nounits",
+        ])
+        .output();
+
+    if let Ok(output) = comprehensive_output {
+        if output.status.success() {
+            if let Ok(out_str) = String::from_utf8(output.stdout) {
+                for line in out_str.lines() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                    if parts.len() >= 3 {
+                        if let (Ok(pid), Ok(memory)) = (parts[0].parse::<u32>(), parts[2].parse::<u32>()) {
+                            let name = parts[1].to_string();
+                            processes.push(GpuProcess {
+                                pid,
+                                name,
+                                memory_mb: memory,
+                                gpu_util: None,
+                                mem_util: None,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Get per-process GPU utilization using pmon
+    let pmon_output = Command::new("nvidia-smi")
+        .args(["pmon", "-c", "1", "-s", "u"])
+        .output();
+
+    if let Ok(output) = pmon_output {
+        if output.status.success() {
+            if let Ok(out_str) = String::from_utf8(output.stdout) {
+                for line in out_str.lines() {
+                    // Skip header and separator lines
+                    if line.starts_with('#') || line.trim().is_empty() || line.contains("gpu") {
+                        continue;
+                    }
+                    
+                    let parts: Vec<&str> = line.split_whitespace().collect();
+                    // Expected format: gpu pid type sm mem enc dec command
+                    if parts.len() >= 7 {
+                        if let Ok(pid) = parts[1].parse::<u32>() {
+                            // Parse utilization percentages - handle both % and - cases
+                            let gpu_util = if parts[3] == "-" { 
+                                None 
+                            } else { 
+                                parts[3].replace("%", "").parse::<u32>().ok() 
+                            };
+                            let mem_util = if parts[4] == "-" { 
+                                None 
+                            } else { 
+                                parts[4].replace("%", "").parse::<u32>().ok() 
+                            };
+                            
+                            // Check if we already have this process from compute query
+                            if let Some(process) = processes.iter_mut().find(|p| p.pid == pid) {
+                                // Update existing process with utilization info
+                                process.gpu_util = gpu_util;
+                                process.mem_util = mem_util;
+                            } else {
+                                // Add new process found in pmon but not in compute apps
+                                let name = parts[6..].join(" ");
+                                processes.push(GpuProcess {
+                                    pid,
+                                    name,
+                                    memory_mb: 0, // Will be updated from graphics query
+                                    gpu_util,
+                                    mem_util,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Get additional graphics processes if available
+    let graphics_output = Command::new("nvidia-smi")
+        .args([
+            "--query-apps=pid,name,used_memory",
+            "--format=csv,noheader,nounits",
+        ])
+        .output();
+
+    if let Ok(output) = graphics_output {
+        if output.status.success() {
+            if let Ok(out_str) = String::from_utf8(output.stdout) {
+                for line in out_str.lines() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    let parts: Vec<&str> = line.split(',').map(|s| s.trim()).collect();
+                    if parts.len() >= 3 {
+                        if let (Ok(pid), Ok(memory)) = (parts[0].parse::<u32>(), parts[2].parse::<u32>()) {
+                            let name = parts[1].to_string();
+                            
+                            // Check if we already have this process
+                            if let Some(process) = processes.iter_mut().find(|p| p.pid == pid) {
+                                // Update memory if it's higher (more accurate)
+                                if memory > process.memory_mb {
+                                    process.memory_mb = memory;
+                                }
+                            } else {
+                                // Add new graphics process
+                                processes.push(GpuProcess {
+                                    pid,
+                                    name,
+                                    memory_mb: memory,
+                                    gpu_util: None,
+                                    mem_util: None,
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // Sort by memory usage (highest first)
+    processes.sort_by(|a, b| b.memory_mb.cmp(&a.memory_mb));
+    processes
 }
 

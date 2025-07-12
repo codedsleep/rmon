@@ -558,26 +558,45 @@ async fn main() -> Result<()> {
     if args.simple {
         run_simple_mode(app)?;
     } else {
-        // Setup terminal
-        enable_raw_mode()?;
+        // Check if we're in a proper terminal environment
+        if std::env::var("TERM").is_err() {
+            eprintln!("Error: TERM environment variable not set. Try running with --simple flag.");
+            std::process::exit(1);
+        }
+        
+        // Setup terminal with better error handling
+        enable_raw_mode().map_err(|e| {
+            eprintln!("Failed to enable raw mode: {}. Try running with --simple flag.", e);
+            e
+        })?;
+        
         let mut stdout = io::stdout();
-        execute!(stdout, EnterAlternateScreen, EnableMouseCapture)?;
+        execute!(stdout, EnterAlternateScreen, EnableMouseCapture).map_err(|e| {
+            let _ = disable_raw_mode();
+            eprintln!("Failed to setup terminal: {}. Try running with --simple flag.", e);
+            e
+        })?;
+        
         let backend = CrosstermBackend::new(stdout);
-        let mut terminal = Terminal::new(backend)?;
+        let mut terminal = Terminal::new(backend).map_err(|e| {
+            let _ = disable_raw_mode();
+            eprintln!("Failed to create terminal: {}. Try running with --simple flag.", e);
+            e
+        })?;
         
         let res = run_app(&mut terminal, app);
         
         // Restore terminal
-        disable_raw_mode()?;
-        execute!(
+        let _ = disable_raw_mode();
+        let _ = execute!(
             terminal.backend_mut(),
             LeaveAlternateScreen,
             DisableMouseCapture
-        )?;
-        terminal.show_cursor()?;
+        );
+        let _ = terminal.show_cursor();
         
         if let Err(err) = res {
-            println!("{:?}", err);
+            eprintln!("Application error: {:?}", err);
         }
     }
     
